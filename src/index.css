@@ -7,7 +7,20 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+
+.screen {
+  overflow: auto !important;
+}
+
+.devices {
+  display: none;
+}
+
+.devices .device {
+  display: inline-block;
+  padding: 2em;
+}
+
+.devices .device.mobile ::-webkit-scrollbar {
+  display: none !important;
 }

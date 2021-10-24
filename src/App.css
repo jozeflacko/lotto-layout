@@ -1,38 +1,100 @@
-.App {
-  text-align: center;
+* {
+    box-sizing:border-box !important;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+.app {
+    padding: 1em;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+.lottos {
+    border:1px solid black;
+    padding:1em;
+    margin-bottom: 1em;
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+.lotto {
+    border: 3px solid black;
+    margin-bottom:1em;
+    background: #fcfcfc;
+    padding: 1em;
 }
 
-.App-link {
-  color: #61dafb;
+.collapsible-panel .header {
+
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.collapsible-panel .detail {
+    margin-top:1em;
+}
+
+.selected-numbers {
+    margin-bottom:1em;
+    display:flex
+}
+
+.ball {
+    border: 1px solid black;
+    text-align:center;
+    display:inline-flex;
+    justify-content: center;
+    align-items: center;
+    margin:0 0.5em;
+    width: 2em;
+    height:2em;
+    border-radius: 50%;
+}
+
+.bet-table {
+    display:grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+}
+
+.bet-field {
+    display:inline-flex;
+    justify-content: center;
+    align-items: center;
+    border:1px solid black;
+    justify-self: stretch;
+}
+
+.bet-field.selected {
+    background: #DDD;
+}
+
+.lotto-plus {
+
+}
+
+.jokers {
+
+}
+
+.draws {
+
+}
+
+.box {
+    border:1px solid black;
+    margin-bottom:1em;
+    padding: 1em;
+    text-align:center;
+}
+
+.buttons {
+    text-align: right;
+}
+
+.button {
+    display:inline-flex;
+    justify-content: center;
+    align-items: center;
+    padding:1em;
+    border: 1px solid black;
+    margin-left: 1em;
+    color: black;
+    background: white;
+}
+
+.button.active {
+    background: #DDD
 }
