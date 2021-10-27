@@ -3,20 +3,28 @@
 }
 
 .app {
-    padding: 1em;
+    padding: 0.5em;
+}
+
+.info {
+
+}
+
+.info > div > span {
+    margin-right: 1em;
 }
 
 .lottos {
     border:1px solid black;
-    padding:1em;
+    padding: 0.5em;
     margin-bottom: 1em;
 }
 
 .lotto {
-    border: 3px solid black;
+    border: 1px solid black;
     margin-bottom:1em;
     background: #fcfcfc;
-    padding: 1em;
+    padding: 0.5em;
 }
 
 .collapsible-panel .header {
@@ -49,15 +57,27 @@
     grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
 }
 
-.bet-field {
+.bet-table > .bet-cell {
+    display:inline-flex;
+    justify-content: center;
+    align-items: center;
+    justify-self: stretch;
+    cursor: pointer;
+    padding:0.25em;
+}
+
+.bet-table > .bet-cell > .bet-field {
     display:inline-flex;
     justify-content: center;
     align-items: center;
     border:1px solid black;
     justify-self: stretch;
+    cursor: pointer;
+    padding: 0.5em;
+    width:100%
 }
 
-.bet-field.selected {
+.bet-cell.selected .bet-field{
     background: #DDD;
 }
 
@@ -76,8 +96,7 @@
 .box {
     border:1px solid black;
     margin-bottom:1em;
-    padding: 1em;
-    text-align:center;
+    padding: 0.5em;
 }
 
 .buttons {
@@ -88,11 +107,20 @@
     display:inline-flex;
     justify-content: center;
     align-items: center;
-    padding:1em;
+    padding: 1em;
     border: 1px solid black;
     margin-left: 1em;
     color: black;
     background: white;
+    cursor: pointer;
+}
+
+.pay-row {
+    text-align:right;
+}
+
+.pay-row .btn-play {
+
 }
 
 .button.active {

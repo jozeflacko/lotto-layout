@@ -5,7 +5,8 @@ interface IConfig {
     howManySelectedBallsShouldRender: number,
     minBallNumber: number,
     maxBallNumber: number,
-    allAvailableJokers: number[],
+    allJokers: number[],
+    defaultJokers: number[],
     minDraws: number,
     maxDraws: number,
     defaultDraws: number,
@@ -29,13 +30,22 @@ interface INumber {
     selected: boolean,
 }
 
+const PRICE = {
+    BET: 120,
+    LOTTO_PLUS: 50,
+    JOKER: 150,
+}
+
+const allAvailableJokers = createRandomNumbers(100000, 999999, 10);
+
 function App() {
 
     const [config] = React.useState<IConfig>({
         minBallNumber: 1,
         maxBallNumber: 45,
         howManySelectedBallsShouldRender: 6,
-        allAvailableJokers: createRandomNumbers(100000, 999999, 10),
+        allJokers: allAvailableJokers,
+        defaultJokers: [allAvailableJokers[0]],
         minDraws: 1,
         maxDraws: 10,
         defaultDraws: 1,
@@ -45,19 +55,34 @@ function App() {
         acceptanceDeadline: 'Mittwoch, 27.10.2021 18:30 Uhr'
     });
 
-    const [wallet] = React.useState('€ 80, 70');
-    const [price] = React.useState('€ 1,50');
+    const [wallet] = React.useState(80000);
+    const [price, setPrice] = React.useState(0);
 
     const [bets, setBets] = React.useState<IBet[]>([createBet(false, config.minBallNumber, config.maxBallNumber)]);
     const [playLottoPlus, setPlayLottoPlus] = React.useState(true);
-    const [allAvailableJokers] = React.useState(createRandomNumbers(100000, 999999, 5));
 
     const [playJoker, setPlayJoker] = React.useState(true);
 
-    const [selectedJokers, setSelectedJokers] = React.useState([allAvailableJokers[0]]);
+    const [selectedJokers, setSelectedJokers] = React.useState(config.defaultJokers);
+    const [numberOfDraws, setNumberOfDraws] = React.useState(config.defaultDraws);
+
+    React.useEffect(() => {
+        let __price = 0;
+        __price += bets.length * PRICE.BET;
+        __price += playLottoPlus ? PRICE.LOTTO_PLUS : 0;
+        __price += playJoker ? (selectedJokers.length * PRICE.JOKER) : 0;
+        __price = __price * numberOfDraws;
+        setPrice(__price);
+        console.log(__price)
+    });
 
     return (
         <div className={'app'}>
+            <Info
+                wallet={wallet}
+                price={price}
+                acceptanceDeadline={config.acceptanceDeadline}
+            />
             <Lottos
                 config={config}
                 bets={bets}
@@ -80,7 +105,11 @@ function App() {
                     setPlayJoker(playJoker);
                 }}
             />
-            <Draws/>
+            <Draws
+                config={config}
+                numberOfDraws={numberOfDraws}
+                onDrawsClick={numberOfDraws => setNumberOfDraws(numberOfDraws)}
+            />
             <Pay/>
         </div>
     );
@@ -110,11 +139,12 @@ function Lottos(props: ILottosProps) {
                 onDelete={() => props.onBetsChange(props.bets.filter(__bet => __bet !== bet))}
             />)}
             <Buttons>
-                <Button onClick={() => {
-                    const __newBets = [...props.bets];
-                    __newBets.push(createBet(false, props.config.minBallNumber, props.config.maxBallNumber));
-                    props.onBetsChange(__newBets);
-                }}
+                <Button
+                    onClick={() => {
+                        const __newBets = [...props.bets];
+                        __newBets.push(createBet(false, props.config.minBallNumber, props.config.maxBallNumber));
+                        props.onBetsChange(__newBets);
+                    }}
                 >
                     + Tipp
                 </Button>
@@ -151,7 +181,8 @@ function Lotto(props: ILottoProps) {
                 isDetailOpen={isDetailOpen}
                 header={<div className={'header'}>
                     <h4>{props.message}</h4>
-                    <SelectedBalls numbers={props.numbers} howManyShouldBe={props.config.howManySelectedBallsShouldRender}/>
+                    <SelectedBalls numbers={props.numbers}
+                                   howManyShouldBe={props.config.howManySelectedBallsShouldRender}/>
                     <Buttons>
                         <Button
                             onClick={() => props.onBetChange(createNumbers(true, props.config.minBallNumber, props.config.maxBallNumber))}>refresh</Button>
@@ -274,9 +305,11 @@ interface IBetFieldProps extends INumber {
 
 function BetField(props: IBetFieldProps) {
     return <div
-        className={'bet-field' + (props.selected ? ' selected' : '')}
+        className={'bet-cell' + (props.selected ? ' selected' : '')}
         onClick={() => props.onClick()}
-    >{props.value}</div>
+    >
+        <div className={'bet-field'}>{props.value}</div>
+    </div>
 }
 
 interface IBallProps {
@@ -350,26 +383,56 @@ function Jokers(props: IJokersProps) {
     )
 }
 
-function Draws() {
+interface IDrawsProps {
+    config: IConfig,
+    numberOfDraws: number,
+    onDrawsClick: (numberOfDraws: number) => void
+}
+
+function Draws(props: IDrawsProps) {
+
+    const buttons = [];
+    for (let i = 1; i <= props.config.maxDraws; i++) {
+        buttons.push({value: i, selected: props.numberOfDraws === i})
+    }
+
     return (
         <div className={'box jokers'}>
             <h4>Spieldauer</h4>
             <Buttons>
-                <Button>1</Button>
-                <Button>2</Button>
+                {buttons.map(b => <Button active={b.selected}
+                                          onClick={() => props.onDrawsClick(b.value)}>{b.value}</Button>)}
             </Buttons>
             <h5>Ziehungen</h5>
         </div>
     )
 }
 
+interface IInfoProps {
+    wallet: number,
+    price: number,
+    acceptanceDeadline: string,
+}
+
+function Info(props: IInfoProps) {
+    return <div className={'info box'}>
+        <div>
+            <span>wallet: {toEuro(props.wallet)}</span>
+            <span>price: {toEuro(props.price)}</span>
+        </div>
+        <div>
+            <span>Annahmeschluss: {props.acceptanceDeadline}</span>
+        </div>
+    </div>
+}
+
 function Buttons(props: { children: any }) {
     return <div className={'buttons'}>{props.children}</div>
 }
 
-function Button(props: { children: string | number, onClick?: () => void, active?: boolean }) {
+function Button(props: { children: string | number, onClick?: () => void, active?: boolean, className?: string }) {
     return <button
-        className={'button' + (props.active ? ' active' : '')}
+        className={props.className + ' button' + (props.active ? ' active' : '')}
         onClick={() => props.onClick && props.onClick()}
     >
         {props.children}
@@ -378,8 +441,14 @@ function Button(props: { children: string | number, onClick?: () => void, active
 
 function Pay() {
     return (
-        <Button>Tippabgabe</Button>
+        <div className={'pay-row'}>
+            <Button className={'btn-pay'}>Tippabgabe</Button>
+        </div>
     )
+}
+
+function toEuro(cents: number) {
+    return '€ ' + (cents / 100).toFixed(2);
 }
 
 export default App;
