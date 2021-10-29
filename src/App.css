@@ -1,5 +1,5 @@
 * {
-    box-sizing:border-box !important;
+    box-sizing: border-box !important;
 }
 
 .app {
@@ -23,7 +23,7 @@
     box-shadow: 0px 0px 2px black;
     background: #eee;
     border-radius: 0.5em;
-    margin-bottom:1em;
+    margin-bottom: 1em;
     background: #fcfcfc;
     padding: 0.5em;
 }
@@ -33,23 +33,39 @@
 }
 
 .collapsible-panel .detail {
-    margin-top:1em;
+    margin-top: 1em;
+}
+
+.collapsible-panel .show-more-or-less {
+    color: red;
+    font-size: 0.8em;
+    padding: 1em 0;
+    display: flex;
+    justify-content: center;
+}
+
+.collapsible-panel .show-more-or-less .label {
+    flex-grow: 1;
+}
+
+.collapsible-panel .show-more-or-less .icon {
+    flex-grow: 0;
 }
 
 .selected-numbers {
-    margin-bottom:1em;
-    display:flex
+    margin-bottom: 1em;
+    display: flex
 }
 
 .ball {
     border: 1px solid black;
-    text-align:center;
-    display:inline-flex;
+    text-align: center;
+    display: inline-flex;
     justify-content: center;
     align-items: center;
-    margin:0 0.5em;
+    margin: 0 0.5em;
     width: 2em;
-    height:2em;
+    height: 2em;
     border-radius: 50%;
 }
 
@@ -59,28 +75,28 @@
 }
 
 .grid-numbers {
-    display:grid;
+    display: grid;
     grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
 }
 
 .grid-numbers .grid-number {
-    display:inline-flex;
+    display: inline-flex;
     justify-content: center;
     align-items: center;
     justify-self: stretch;
     cursor: pointer;
-    padding:0.25em;
+    padding: 0.25em;
 }
 
 .grid-numbers .grid-number .grid-number-value {
-    display:inline-flex;
+    display: inline-flex;
     justify-content: center;
     align-items: center;
-    border:1px solid black;
+    border: 1px solid black;
     justify-self: stretch;
     cursor: pointer;
     padding: 0.5em;
-    width:100%
+    width: 100%
 }
 
 .grid-numbers .grid-number.selected .grid-number-value {
@@ -105,11 +121,11 @@
 }
 
 .box {
-    margin-bottom:1em;
+    margin-bottom: 1em;
     padding: 0.5em;
     background: white;
     border-radius: 0.5em;
-    box-shadow: 3px 3px 3px #DDD;
+    box-shadow: 3px 3px 3px #EEE;
 }
 
 .buttons {
@@ -117,7 +133,7 @@
 }
 
 .button {
-    display:inline-flex;
+    display: inline-flex;
     justify-content: center;
     align-items: center;
     border: 1px solid black;
@@ -127,7 +143,7 @@
     cursor: pointer;
     position: relative;
     white-space: nowrap;
-    height:3em;
+    height: 3em;
     padding: 0.5em;
     position: relative;
 }
@@ -142,7 +158,7 @@
 
 .button .selection {
     top: 0;
-    left:0;
+    left: 0;
     width: 100%;
     padding: 0 1em;
     height: inherit;
@@ -155,7 +171,7 @@
 }
 
 .button .selection:hover {
-    color: green;
+    background: #EEE;
 }
 
 .button .options {
@@ -180,7 +196,7 @@
 }
 
 .pay-row {
-    text-align:right;
+    text-align: right;
 }
 
 .pay-row .btn-play {

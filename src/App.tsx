@@ -44,7 +44,7 @@ const allAvailableJokers = createRandomNumbers(100000, 999999, 10);
 
 function App() {
 
-    const defaultValues:IDefaultValues = {
+    const defaultValues: IDefaultValues = {
         minBallNumber: 1,
         maxBallNumber: 45,
         numberOfSelectedNumbers: 6,
@@ -81,7 +81,7 @@ function App() {
     }
 
     const [showPayButton, setShowPayButton] = React.useState(false);
-    const [showPreviewButton, setShowPreviewButton] = React.useState(false);
+    const [showPreview, setShowPreview] = React.useState(false);
     const [showResetButton, setShowResetButton] = React.useState(false);
 
     React.useEffect(() => {
@@ -128,12 +128,11 @@ function App() {
                 onDrawsClick={numberOfDraws => setNumberOfDraws(numberOfDraws)}
             />
             <Actions
-                onPay={() => {}}
+                onPay={() => {
+                }}
                 onReset={() => resetAll()}
-                onShowPreview={() => {}}
-                activatePayButton={showPayButton}
-                showResetButton={showResetButton}
-                showPreviewButton={showPreviewButton}
+                showPreview={showPreview}
+                onShowPreview={() => setShowPreview(true)}
                 price={price}
             />
         </div>
@@ -153,7 +152,7 @@ function Lottos(props: ILottosProps) {
     let areAddBetButtonsDisabled = false;
     let hint = '';
 
-    if(isMaximumNumberOfBetsSelected) {
+    if (isMaximumNumberOfBetsSelected) {
         areAddBetButtonsDisabled = true;
         hint = 'You have selected maximal possible amount of bets';
     }
@@ -188,33 +187,41 @@ function Lottos(props: ILottosProps) {
                 <Buttons>
                     <Button
                         disabled={areAddBetButtonsDisabled}
-                        onClick={() => {
+                        maxNumberOfMultiClick={props.config.maxBets /* TODO calculate correct number */}
+                        onClick={(howMany) => {
                             const __newBets = [...props.bets];
-                            __newBets.push(createBet(
-                                false,
-                                props.config.minBallNumber, props.config.maxBallNumber,
-                                props.config.numberOfSelectedNumbers
-                            ));
+
+                            new Array(howMany).fill(0).forEach(() => {
+                                __newBets.push(createBet(
+                                    false,
+                                    props.config.minBallNumber, props.config.maxBallNumber,
+                                    props.config.numberOfSelectedNumbers
+                                ));
+                            });
+
                             props.onBetsChange(__newBets);
                         }}
                     >
-                        Add Tipp
+                        {n => n <= 1 ? 'Add 1 Tipp' : 'Add ' + n + ' Tipps'}
                     </Button>
                     <Button
                         disabled={areAddBetButtonsDisabled}
-                        maxNumberOfMultiClick={10}
-                        onClick={() => {
+                        maxNumberOfMultiClick={props.config.maxBets /* TODO calculate correct number */}
+                        onClick={(howMany) => {
                             const __newBets = [...props.bets];
-                            __newBets.push(createBet(
-                                true,
-                                props.config.minBallNumber,
-                                props.config.maxBallNumber,
-                                props.config.numberOfSelectedNumbers
-                            ));
+
+                            new Array(howMany).fill(0).forEach(() => {
+                                __newBets.push(createBet(
+                                    true,
+                                    props.config.minBallNumber,
+                                    props.config.maxBallNumber,
+                                    props.config.numberOfSelectedNumbers
+                                ));
+                            });
                             props.onBetsChange(__newBets);
                         }}
                     >
-                        Add Quicktipp/s
+                        {n => n <= 1 ? 'Add 1 QuickTipp' : 'Add ' + n + ' QuickTipps'}
                     </Button>
                 </Buttons>
             </div>
@@ -229,13 +236,13 @@ function createBet(
     numberOfSelectedNumbers: number,
 ): IBet {
 
-     const bet: IBet = {
+    const bet: IBet = {
         quick: quick,
         numbers: createNumbers(quick, minNumber, maxNumber, numberOfSelectedNumbers),
         areAllNumbersSelected: quick
     };
 
-     return {...bet, areAllNumbersSelected: isBetFullySelected(bet, numberOfSelectedNumbers)};
+    return {...bet, areAllNumbersSelected: isBetFullySelected(bet, numberOfSelectedNumbers)};
 }
 
 interface ILottoProps extends IBet {
@@ -249,7 +256,7 @@ function Lotto(props: ILottoProps) {
 
     const [isOpen, setIsDetailOpen] = React.useState(true);
 
-    function createBetNumbers(randomNumbers:boolean) {
+    function createBetNumbers(randomNumbers: boolean) {
         return createNumbers(
             randomNumbers,
             props.defaultValues.minBallNumber,
@@ -258,7 +265,7 @@ function Lotto(props: ILottoProps) {
         );
     }
 
-    function handleCreateNumbers(randomNumbers:boolean) {
+    function handleCreateNumbers(randomNumbers: boolean) {
         props.onBetChange(createBetNumbers(randomNumbers));
     }
 
@@ -327,14 +334,12 @@ function CollapsiblePanel(props: ICollapsiblePanelProps) {
             {props.isOpen && <div className={'detail'}>
                 {props.detail}
             </div>}
-            <div>
-                <Buttons>
-                    <Button
-                        onClick={()=>props.onToggleIsOpenClick(!props.isOpen)}
-                    >
-                        {props.isOpen ? 'show less' : 'show more'}
-                    </Button>
-                </Buttons>
+            <div
+                className={'show-more-or-less'}
+                onClick={() => props.onToggleIsOpenClick(!props.isOpen)}
+            >
+                <span className={'label'}>{props.isOpen ? 'Weniger anzeigen' : 'Mehr anzeigen'}</span>
+                <span className={'icon'}>{props.isOpen ? 'UP' : 'down'}</span>
             </div>
         </div>
     )
@@ -434,8 +439,8 @@ function GridNumber(props: IGrindNumberProps) {
         className={mergeClassNames(
             'grid-number',
             {
-                'selected' : props.selected,
-                'primary' : props.variant === 'primary',
+                'selected': props.selected,
+                'primary': props.variant === 'primary',
             }
         )}
         onClick={() => props.onClick()}
@@ -454,7 +459,7 @@ function Ball(props: IBallProps) {
         className={mergeClassNames(
             'ball',
             {
-                'primary' : props.variant === 'primary',
+                'primary': props.variant === 'primary',
             }
         )}
     >
@@ -573,79 +578,110 @@ function Buttons(props: { children: any }) {
 }
 
 interface IButtonProps {
-    children: string | number,
+    children: string | number | ((numberOfClicks: number) => string),
     onClick?: (numberOfTimesButtonWasClicked: number) => void,
     active?: boolean,
     disabled?: boolean,
     className?: string,
     maxNumberOfMultiClick?: number,
 }
+
 function Button(props: IButtonProps) {
 
-    function callClickAndResetButtonState(_numberOfClicks: number) {
-        props.onClick && props.onClick(_numberOfClicks);
-        setTriggerClick(false);
+    function reset() {
         setNumberOfClicks(0);
         setIsDropdownOpen(false);
+        setShowConfirm(false);
+    }
+
+    function callClickAndReset(event: any, _numberOfClicks: number) {
+        props.onClick && props.onClick(_numberOfClicks);
+        reset();
     }
 
     const maxNumberOfMultiClick = props.maxNumberOfMultiClick || 1;
-    let [triggerClick, setTriggerClick] = React.useState(false);
     const [numberOfClicks, setNumberOfClicks] = React.useState(0);
+    const [showConfirm, setShowConfirm] = React.useState(false);
 
-    function handleClick(_numberOfClicks?: number) {
-        if(props.onClick == null) {
+    const [timer, setTimer] = React.useState<any>();
+
+    function handleClick(event: any, _numberOfClicks?: number) {
+        event.preventDefault();
+        const current = event.target;
+
+        if (props.onClick == null) {
             return;
-        } else if(isDropdownOpen) {
-            if(_numberOfClicks) {
-                callClickAndResetButtonState(_numberOfClicks);
-            }
-        } else if(maxNumberOfMultiClick === 1) {
-            callClickAndResetButtonState(1);
+        } else if (current && current.classList.contains('selection')) {
+            setIsDropdownOpen(!isDropdownOpen);
+            setNumberOfClicks(0);
+            setShowConfirm(false);
+        } else if (current && current.classList.contains('confirm-yes')) {
+            callClickAndReset(event, numberOfClicks);
+        } else if (current && current.classList.contains('confirm-no')) {
+            reset();
+        } else if (isDropdownOpen) {
+            reset();
+        } else if (_numberOfClicks == null && maxNumberOfMultiClick === 1) {
+            callClickAndReset(event, 1);
         } else {
-            setTriggerClick(false);
-            setNumberOfClicks(numberOfClicks +1);
-            setTimeout(() => {
-                if(triggerClick === true) {
-                    callClickAndResetButtonState(numberOfClicks);
-                }
-               setTriggerClick(true);
-            }, 400);
+            clearTimeout(timer);
+            setNumberOfClicks(previousNumberOfClicks => {
+                const newNumberOfClicks = previousNumberOfClicks + 1;
+                setTimer(setTimeout(() => {
+                    if (newNumberOfClicks === 1) {
+                        callClickAndReset(event, newNumberOfClicks);
+                    } else {
+                        setShowConfirm(true);
+                    }
+                }, 500));
+                return newNumberOfClicks;
+            });
         }
     }
 
+
     const options: number[] = [];
-    for(let i=2;i<=maxNumberOfMultiClick; i++) {
+    for (let i = 2; i <= maxNumberOfMultiClick; i++) {
         options.push(i);
     }
 
     const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
 
     return <button className={props.className + ' button' + (props.active ? ' active' : '')}
-        disabled={props.disabled === true}
-        onClick={() => handleClick()}
+                   disabled={props.disabled === true}
+                   onClick={event => handleClick(event)}
     >
-        {props.children} {numberOfClicks > 1 ? `+ ${numberOfClicks}` : ''}
-        {maxNumberOfMultiClick > 1 ? <>
-            <div
-                className={'selection'}
-                onClick={(event: any) => {
-                    event.preventDefault();
-                    setIsDropdownOpen(!isDropdownOpen);
-                    setNumberOfClicks(0);
-                    setTriggerClick(false);
-                }}
-            >
-                {isDropdownOpen ? '<' : '>'}
-            </div>
-            {isDropdownOpen && <div className={'options'}>
-                <Hint>Choose how many to add</Hint>
-                {options.map(o => <div
-                    className={'option'}
-                    onClick={() => handleClick(o)}
-                >{o}</div>)}
-            </div>}
-        </> : ''}
+        {showConfirm ? <>
+                <div className={'confirm-yes'}>
+                    Click Confirm adding {numberOfClicks} items?
+                </div>
+                <div style={{margin: '0 1em'}}> |</div>
+                <div className={'confirm-no'}>Cancel</div>
+            </>
+            :
+            <>
+                {
+                    typeof props.children === 'function' ?
+                        props.children(numberOfClicks) :
+                        props.children
+                }
+                {maxNumberOfMultiClick > 1 ? <>
+                    <div
+                        className={'selection'}
+                        onClick={event => handleClick(event)}
+                    >
+                        {isDropdownOpen ? '<' : '>'}
+                    </div>
+                    {isDropdownOpen && <div className={'options'}>
+                        <Hint>Choose how many to add</Hint>
+                        {options.map(o => <div
+                            className={'option'}
+                            onClick={(event) => callClickAndReset(event, o)}
+                        >{o}</div>)}
+                    </div>}
+                </> : ''}
+            </>
+        }
     </button>
 }
 
@@ -653,11 +689,7 @@ interface IActionsProps {
     onShowPreview: () => void;
     onPay: () => void;
     onReset: () => void;
-
-    showPreviewButton: boolean,
-    activatePayButton: boolean,
-    showResetButton: boolean,
-
+    showPreview: boolean,
     price: number,
 }
 
@@ -668,12 +700,11 @@ function Actions(props: IActionsProps) {
             <Buttons>
                 <Button
                     className={'btn-preview'}
-                    disabled={props.showPreviewButton}
                     onClick={props.onShowPreview}
                 >
                     Show Preview
                 </Button>
-                {props.activatePayButton && <Button
+                {<Button
                     className={'btn-pay'}
                     onClick={props.onPay}
                 >
@@ -681,7 +712,6 @@ function Actions(props: IActionsProps) {
                 </Button>}
                 <Button
                     className={'btn-reset'}
-                    active={props.showResetButton}
                     onClick={props.onReset}
                 >
                     Reset
@@ -707,12 +737,12 @@ function toEuro(cents: number) {
     return '€ ' + (cents / 100).toFixed(2);
 }
 
-function mergeClassNames(...params: (null | undefined | string | {[key: string]: boolean})[]) {
+function mergeClassNames(...params: (null | undefined | string | { [key: string]: boolean })[]) {
     let classNames: string[] = [];
     params.forEach(param => {
-        if(param == null) {
+        if (param == null) {
             // skip
-        } else if(typeof param === 'string') {
+        } else if (typeof param === 'string') {
             classNames.push(param);
         } else {
             classNames = [
