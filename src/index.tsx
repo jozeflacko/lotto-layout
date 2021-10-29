@@ -8,9 +8,7 @@ import Win2Day from "./Win2Day/Win2day";
 
 ReactDOM.render(
     <React.StrictMode>
-        <Win2Day>
-            <App/>
-        </Win2Day>
+        <App/>
 
         {/* <div className={'devices'}>
             <div className={'device mobile'}>

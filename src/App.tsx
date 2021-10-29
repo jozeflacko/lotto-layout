@@ -1,24 +1,28 @@
 import React from 'react';
 import './App.css';
 
-interface IConfig {
-    howManySelectedBallsShouldRender: number,
+interface IDefaultValues {
+    numberOfSelectedNumbers: number,
     minBallNumber: number,
     maxBallNumber: number,
-    allJokers: number[],
-    defaultJokers: number[],
+    availableJokers: number[],
     minDraws: number,
     maxDraws: number,
-    defaultDraws: number,
+    initNumberOfDraws: number,
     minBets: number,
     maxBets: number,
-    defaultBets: number,
+    numberOfBets: number,
     acceptanceDeadline: string,
+    initBet: IBet[],
+    initPlayLottoPlus: boolean,
+    initJokers: number[],
+    initPlayJokers: boolean,
 }
 
 interface IBet {
     quick: boolean,
     numbers: INumbers,
+    areAllNumbersSelected: boolean,
 }
 
 interface INumbers {
@@ -40,31 +44,45 @@ const allAvailableJokers = createRandomNumbers(100000, 999999, 10);
 
 function App() {
 
-    const [config] = React.useState<IConfig>({
+    const defaultValues:IDefaultValues = {
         minBallNumber: 1,
         maxBallNumber: 45,
-        howManySelectedBallsShouldRender: 6,
-        allJokers: allAvailableJokers,
-        defaultJokers: [allAvailableJokers[0]],
+        numberOfSelectedNumbers: 6,
+        availableJokers: allAvailableJokers,
         minDraws: 1,
         maxDraws: 10,
-        defaultDraws: 1,
+        initNumberOfDraws: 1,
         minBets: 1,
         maxBets: 12,
-        defaultBets: 1,
-        acceptanceDeadline: 'Mittwoch, 27.10.2021 18:30 Uhr'
-    });
+        numberOfBets: 1,
+        acceptanceDeadline: 'Mittwoch, 27.10.2021 18:30 Uhr',
+        initBet: [createBet(false, 1, 45, 6)],
+        initPlayLottoPlus: true,
+        initPlayJokers: true,
+        initJokers: [allAvailableJokers[0]],
+    };
 
     const [wallet] = React.useState(80000);
     const [price, setPrice] = React.useState(0);
 
-    const [bets, setBets] = React.useState<IBet[]>([createBet(false, config.minBallNumber, config.maxBallNumber)]);
-    const [playLottoPlus, setPlayLottoPlus] = React.useState(true);
+    // game
+    const [bets, setBets] = React.useState<IBet[]>(defaultValues.initBet);
+    const [playLottoPlus, setPlayLottoPlus] = React.useState(defaultValues.initPlayLottoPlus);
+    const [playJoker, setPlayJokers] = React.useState(defaultValues.initPlayJokers);
+    const [selectedJokers, setSelectedJokers] = React.useState(defaultValues.initJokers);
+    const [numberOfDraws, setNumberOfDraws] = React.useState(defaultValues.initNumberOfDraws);
 
-    const [playJoker, setPlayJoker] = React.useState(true);
+    function resetAll() {
+        setBets(defaultValues.initBet);
+        setPlayLottoPlus(defaultValues.initPlayLottoPlus);
+        setPlayJokers(defaultValues.initPlayJokers);
+        setSelectedJokers(defaultValues.initJokers);
+        setNumberOfDraws(defaultValues.initNumberOfDraws);
+    }
 
-    const [selectedJokers, setSelectedJokers] = React.useState(config.defaultJokers);
-    const [numberOfDraws, setNumberOfDraws] = React.useState(config.defaultDraws);
+    const [showPayButton, setShowPayButton] = React.useState(false);
+    const [showPreviewButton, setShowPreviewButton] = React.useState(false);
+    const [showResetButton, setShowResetButton] = React.useState(false);
 
     React.useEffect(() => {
         let __price = 0;
@@ -73,7 +91,6 @@ function App() {
         __price += playJoker ? (selectedJokers.length * PRICE.JOKER) : 0;
         __price = __price * numberOfDraws;
         setPrice(__price);
-        console.log(__price)
     });
 
     return (
@@ -81,10 +98,10 @@ function App() {
             <Info
                 wallet={wallet}
                 price={price}
-                acceptanceDeadline={config.acceptanceDeadline}
+                acceptanceDeadline={defaultValues.acceptanceDeadline}
             />
             <Lottos
-                config={config}
+                config={defaultValues}
                 bets={bets}
                 onBetsChange={bets => setBets(bets)}
             />
@@ -102,15 +119,23 @@ function App() {
                         const jokers = allAvailableJokers.filter((joker, index) => index <= clickedJokerIndex);
                         setSelectedJokers(jokers);
                     }
-                    setPlayJoker(playJoker);
+                    setPlayJokers(playJoker);
                 }}
             />
             <Draws
-                config={config}
+                config={defaultValues}
                 numberOfDraws={numberOfDraws}
                 onDrawsClick={numberOfDraws => setNumberOfDraws(numberOfDraws)}
             />
-            <Pay/>
+            <Actions
+                onPay={() => {}}
+                onReset={() => resetAll()}
+                onShowPreview={() => {}}
+                activatePayButton={showPayButton}
+                showResetButton={showResetButton}
+                showPreviewButton={showPreviewButton}
+                price={price}
+            />
         </div>
     );
 }
@@ -118,88 +143,165 @@ function App() {
 interface ILottosProps {
     bets: IBet[],
     onBetsChange: (bets: IBet[]) => void,
-    config: IConfig,
+    config: IDefaultValues,
 }
 
 function Lottos(props: ILottosProps) {
 
+    const isMaximumNumberOfBetsSelected = props.bets.length >= props.config.maxBets;
+
+    let areAddBetButtonsDisabled = false;
+    let hint = '';
+
+    if(isMaximumNumberOfBetsSelected) {
+        areAddBetButtonsDisabled = true;
+        hint = 'You have selected maximal possible amount of bets';
+    }
+
+    const isDeleteDisabled = props.bets.length <= props.config.minBets;
+
     return (
-        <div className={'lottos'}>
+        <div className={'lottos box'}>
             <h3>Lotto Bets</h3>
-            {props.bets.map((bet, index) => <Lotto
-                message={'Tipp ' + (index + 1) + '/' + props.config.maxBets}
-                quick={bet.quick}
-                numbers={bet.numbers}
-                config={props.config}
-                onBetChange={numbers => {
-                    const clone = [...props.bets];
-                    clone[index] = {...clone[index], numbers: numbers};
-                    props.onBetsChange(clone);
-                }}
-                onDelete={() => props.onBetsChange(props.bets.filter(__bet => __bet !== bet))}
-            />)}
-            <Buttons>
-                <Button
-                    onClick={() => {
-                        const __newBets = [...props.bets];
-                        __newBets.push(createBet(false, props.config.minBallNumber, props.config.maxBallNumber));
-                        props.onBetsChange(__newBets);
+            {props.bets.map((bet, index) => {
+
+                return <Lotto
+                    message={'Tipp ' + (index + 1) + '/' + props.config.maxBets}
+                    areAllNumbersSelected={bet.areAllNumbersSelected}
+                    quick={bet.quick}
+                    numbers={bet.numbers}
+                    defaultValues={props.config}
+                    onBetChange={numbers => {
+                        const clone = [...props.bets];
+                        const current = clone[index];
+                        current.numbers = numbers;
+                        current.areAllNumbersSelected = isBetFullySelected(current, props.config.numberOfSelectedNumbers);
+                        current.quick = false;
+                        clone[index] = current;
+                        props.onBetsChange(clone);
                     }}
-                >
-                    + Tipp
-                </Button>
-                <Button onClick={() => {
-                    const __newBets = [...props.bets];
-                    __newBets.push(createBet(true, props.config.minBallNumber, props.config.maxBallNumber));
-                    props.onBetsChange(__newBets);
-                }}>
-                    + Quicktipp
-                </Button>
-            </Buttons>
+                    onDelete={isDeleteDisabled ? undefined : () => props.onBetsChange(props.bets.filter(__bet => __bet !== bet))}
+                />
+            })}
+            <div>
+                <Hint>{hint}</Hint>
+                <Buttons>
+                    <Button
+                        disabled={areAddBetButtonsDisabled}
+                        onClick={() => {
+                            const __newBets = [...props.bets];
+                            __newBets.push(createBet(
+                                false,
+                                props.config.minBallNumber, props.config.maxBallNumber,
+                                props.config.numberOfSelectedNumbers
+                            ));
+                            props.onBetsChange(__newBets);
+                        }}
+                    >
+                        Add Tipp
+                    </Button>
+                    <Button
+                        disabled={areAddBetButtonsDisabled}
+                        maxNumberOfMultiClick={10}
+                        onClick={() => {
+                            const __newBets = [...props.bets];
+                            __newBets.push(createBet(
+                                true,
+                                props.config.minBallNumber,
+                                props.config.maxBallNumber,
+                                props.config.numberOfSelectedNumbers
+                            ));
+                            props.onBetsChange(__newBets);
+                        }}
+                    >
+                        Add Quicktipp/s
+                    </Button>
+                </Buttons>
+            </div>
         </div>
     )
 }
 
-function createBet(quick: boolean, minNumber: number, maxNumber: number): IBet {
-    return {quick: quick, numbers: createNumbers(quick, minNumber, maxNumber)};
+function createBet(
+    quick: boolean,
+    minNumber: number,
+    maxNumber: number,
+    numberOfSelectedNumbers: number,
+): IBet {
+
+     const bet: IBet = {
+        quick: quick,
+        numbers: createNumbers(quick, minNumber, maxNumber, numberOfSelectedNumbers),
+        areAllNumbersSelected: quick
+    };
+
+     return {...bet, areAllNumbersSelected: isBetFullySelected(bet, numberOfSelectedNumbers)};
 }
 
 interface ILottoProps extends IBet {
     onBetChange: (s: INumbers) => void,
-    onDelete: () => void,
+    onDelete?: () => void,
     message: string,
-    config: IConfig,
+    defaultValues: IDefaultValues,
 }
 
 function Lotto(props: ILottoProps) {
 
-    const [isDetailOpen, setIsDetailOpen] = React.useState(true);
+    const [isOpen, setIsDetailOpen] = React.useState(true);
+
+    function createBetNumbers(randomNumbers:boolean) {
+        return createNumbers(
+            randomNumbers,
+            props.defaultValues.minBallNumber,
+            props.defaultValues.maxBallNumber,
+            props.defaultValues.numberOfSelectedNumbers
+        );
+    }
+
+    function handleCreateNumbers(randomNumbers:boolean) {
+        props.onBetChange(createBetNumbers(randomNumbers));
+    }
 
     return (
         <div className={'lotto'}>
             <CollapsiblePanel
-                isDetailOpen={isDetailOpen}
+                isOpen={isOpen}
+                onToggleIsOpenClick={isOpen => setIsDetailOpen(isOpen)}
                 header={<div className={'header'}>
                     <h4>{props.message}</h4>
-                    <SelectedBalls numbers={props.numbers}
-                                   howManyShouldBe={props.config.howManySelectedBallsShouldRender}/>
+                    <SelectedNumbers
+                        numbers={props.numbers}
+                        howManyShouldBe={props.defaultValues.numberOfSelectedNumbers}
+                        areAllNumbersSelected={props.areAllNumbersSelected}
+                    />
                     <Buttons>
                         <Button
-                            onClick={() => props.onBetChange(createNumbers(true, props.config.minBallNumber, props.config.maxBallNumber))}>refresh</Button>
-                        <Button onClick={() => setIsDetailOpen(old => !old)}>open/close</Button>
+                            onClick={() => handleCreateNumbers(true)}
+                        >
+                            refresh
+                        </Button>
                         <Button
-                            onClick={() => props.onBetChange(createNumbers(false, props.config.minBallNumber, props.config.maxBallNumber))}>clear</Button>
-                        <Button onClick={() => props.onDelete()}> delete</Button>
+                            onClick={() => handleCreateNumbers(false)}
+                        >
+                            clear
+                        </Button>
+                        <Button
+                            onClick={() => props.onDelete && props.onDelete()}
+                            disabled={props.onDelete == null}
+                        >
+                            delete
+                        </Button>
                     </Buttons>
                 </div>}
-                detail={<BetTable
+                detail={<GridNumbers
                     numbers={props.numbers}
+                    areAllNumbersSelected={props.areAllNumbersSelected}
                     onClick={numbers => {
                         const numberOfOfAlreadySelectedNumbersCurrently = Object.keys(props.numbers).filter(key => props.numbers[Number(key)].selected).length;
                         const numberOfOfAlreadySelectedNumbers = Object.keys(numbers).filter(key => numbers[Number(key)].selected).length;
-                        if (numberOfOfAlreadySelectedNumbers < props.config.howManySelectedBallsShouldRender) {
+                        if (numberOfOfAlreadySelectedNumbers < props.defaultValues.numberOfSelectedNumbers) {
                             props.onBetChange(numbers);
-                        } else if (numberOfOfAlreadySelectedNumbersCurrently < props.config.howManySelectedBallsShouldRender) {
+                        } else if (numberOfOfAlreadySelectedNumbersCurrently < props.defaultValues.numberOfSelectedNumbers) {
                             props.onBetChange(numbers);
                         }
                     }}
@@ -212,7 +314,8 @@ function Lotto(props: ILottoProps) {
 interface ICollapsiblePanelProps {
     header: JSX.Element,
     detail: JSX.Element,
-    isDetailOpen: boolean,
+    isOpen: boolean,
+    onToggleIsOpenClick: (isOpen: boolean) => void,
 }
 
 function CollapsiblePanel(props: ICollapsiblePanelProps) {
@@ -221,39 +324,59 @@ function CollapsiblePanel(props: ICollapsiblePanelProps) {
             <div className={'header'}>
                 {props.header}
             </div>
-            {props.isDetailOpen && <div className={'detail'}>
+            {props.isOpen && <div className={'detail'}>
                 {props.detail}
             </div>}
+            <div>
+                <Buttons>
+                    <Button
+                        onClick={()=>props.onToggleIsOpenClick(!props.isOpen)}
+                    >
+                        {props.isOpen ? 'show less' : 'show more'}
+                    </Button>
+                </Buttons>
+            </div>
         </div>
     )
 }
 
-function SelectedBalls(props: { numbers: INumbers, howManyShouldBe: number }) {
-    const balls = Object.keys(props.numbers)
+interface ISelectedBallsProps {
+    numbers: INumbers,
+    howManyShouldBe: number,
+    areAllNumbersSelected: boolean,
+}
+
+function SelectedNumbers(props: ISelectedBallsProps) {
+    const numbers = Object.keys(props.numbers)
         .filter(key => props.numbers[Number(key)].selected)
         .map(key => {
             const number: INumber = props.numbers[Number(key)];
             return {...number, key: number.value + '_selected'}
         });
 
-    if (balls.length < props.howManyShouldBe) {
+    if (numbers.length < props.howManyShouldBe) {
         let iterator = 0;
-        while (balls.length !== props.howManyShouldBe) {
-            balls.push({value: -1, selected: false, key: iterator + '_placeholder'})
+        while (numbers.length !== props.howManyShouldBe) {
+            numbers.push({value: -1, selected: false, key: iterator + '_placeholder'})
         }
     }
 
     return <div
         className={'selected-numbers'}
-        key={balls.map(b => b.key).join('___')}
+        key={numbers.map(b => b.key).join('___')}
     >
-        {balls.map(b => <Ball value={b.value} key={b.key}/>)}
+        {numbers.map(b => <Ball
+            value={b.value}
+            key={b.key}
+            variant={props.areAllNumbersSelected ? 'primary' : undefined}
+        />)}
+        {props.areAllNumbersSelected ? 'OK' : ''}
     </div>;
 }
 
-function createNumbers(randomNumber: boolean, min: number, max: number) {
+function createNumbers(randomNumber: boolean, min: number, max: number, howMany: number) {
     const numbers: INumbers = {};
-    const selectedRandomNumbers = randomNumber ? createRandomNumbers() : [];
+    const selectedRandomNumbers = randomNumber ? createRandomNumbers(min, max, howMany) : [];
     for (let i = min; i <= max; i++) {
         numbers[i] = {
             value: i,
@@ -263,7 +386,7 @@ function createNumbers(randomNumber: boolean, min: number, max: number) {
     return numbers;
 }
 
-function createRandomNumbers(min = 1, max = 45, howMany = 6) {
+function createRandomNumbers(min: number, max: number, howMany: number) {
     const randomNumbers: number[] = [];
     while (randomNumbers.length !== howMany) {
         const number: number = Math.floor(Math.random() * max) + min;
@@ -274,19 +397,21 @@ function createRandomNumbers(min = 1, max = 45, howMany = 6) {
     return randomNumbers;
 }
 
-interface IBetTableProps {
+interface IGridNumbersProps {
     numbers: INumbers,
     onClick: (numbers: INumbers) => void,
+    areAllNumbersSelected: boolean,
 }
 
-function BetTable(props: IBetTableProps) {
+function GridNumbers(props: IGridNumbersProps) {
 
     return (
-        <div className={'bet-table'}>
+        <div className={'grid-numbers'}>
             {Object.keys(props.numbers).map(key => {
                 const number = props.numbers[Number(key)];
-                return <BetField
+                return <GridNumber
                     value={number.value}
+                    variant={props.areAllNumbersSelected ? 'primary' : 'default'}
                     selected={number.selected}
                     onClick={() => {
                         const clone = {...props.numbers};
@@ -299,25 +424,42 @@ function BetTable(props: IBetTableProps) {
     )
 }
 
-interface IBetFieldProps extends INumber {
+interface IGrindNumberProps extends INumber {
     onClick: () => void,
+    variant: 'primary' | 'default'
 }
 
-function BetField(props: IBetFieldProps) {
+function GridNumber(props: IGrindNumberProps) {
     return <div
-        className={'bet-cell' + (props.selected ? ' selected' : '')}
+        className={mergeClassNames(
+            'grid-number',
+            {
+                'selected' : props.selected,
+                'primary' : props.variant === 'primary',
+            }
+        )}
         onClick={() => props.onClick()}
     >
-        <div className={'bet-field'}>{props.value}</div>
+        <div className={'grid-number-value'}>{props.value}</div>
     </div>
 }
 
 interface IBallProps {
     value: number;
+    variant?: 'primary' | 'default'
 }
 
 function Ball(props: IBallProps) {
-    return <div className={'ball'}>{props.value < 0 ? '' : props.value}</div>
+    return <div
+        className={mergeClassNames(
+            'ball',
+            {
+                'primary' : props.variant === 'primary',
+            }
+        )}
+    >
+        {props.value < 0 ? '' : props.value}
+    </div>
 }
 
 interface ILottoPlusProps {
@@ -355,36 +497,32 @@ function Jokers(props: IJokersProps) {
 
     return (
         <div className={'box jokers'}>
-            <CollapsiblePanel
-                isDetailOpen={props.playJoker}
-                header={<div className={'header'}>
-                    <h4>Joker</h4>
-                    <Buttons>
-                        <Button
-                            onClick={() => props.onChange(null, false)}
-                            active={!props.playJoker}
-                        >No</Button>
-                        <Button
-                            onClick={() => props.onChange(null, true)}
-                            active={props.playJoker}
-                        >Yes</Button>
-                    </Buttons>
-                </div>}
-                detail={<Buttons>
-                    {props.allAvailableJokers.map(n => <Button
-                        active={props.selectedJokers.includes(n)}
-                        onClick={() => props.onChange(n, true)}
-                    >
-                        {n}
-                    </Button>)}
-                </Buttons>}
-            />
+            <h4>Joker</h4>
+            <Buttons>
+                <Button
+                    onClick={() => props.onChange(null, false)}
+                    active={!props.playJoker}
+                >No</Button>
+                <Button
+                    onClick={() => props.onChange(null, true)}
+                    active={props.playJoker}
+                >Yes</Button>
+            </Buttons>
+            <Buttons>
+                {props.allAvailableJokers.map(n => <Button
+                    active={!props.playJoker ? false : props.selectedJokers.includes(n)}
+                    onClick={() => props.onChange(n, true)}
+                    disabled={!props.playJoker}
+                >
+                    {n}
+                </Button>)}
+            </Buttons>
         </div>
     )
 }
 
 interface IDrawsProps {
-    config: IConfig,
+    config: IDefaultValues,
     numberOfDraws: number,
     onDrawsClick: (numberOfDraws: number) => void
 }
@@ -400,8 +538,12 @@ function Draws(props: IDrawsProps) {
         <div className={'box jokers'}>
             <h4>Spieldauer</h4>
             <Buttons>
-                {buttons.map(b => <Button active={b.selected}
-                                          onClick={() => props.onDrawsClick(b.value)}>{b.value}</Button>)}
+                {buttons.map(b => <Button
+                    active={b.selected}
+                    onClick={() => props.onDrawsClick(b.value)}
+                >
+                    {b.value}
+                </Button>)}
             </Buttons>
             <h5>Ziehungen</h5>
         </div>
@@ -430,25 +572,164 @@ function Buttons(props: { children: any }) {
     return <div className={'buttons'}>{props.children}</div>
 }
 
-function Button(props: { children: string | number, onClick?: () => void, active?: boolean, className?: string }) {
-    return <button
-        className={props.className + ' button' + (props.active ? ' active' : '')}
-        onClick={() => props.onClick && props.onClick()}
+interface IButtonProps {
+    children: string | number,
+    onClick?: (numberOfTimesButtonWasClicked: number) => void,
+    active?: boolean,
+    disabled?: boolean,
+    className?: string,
+    maxNumberOfMultiClick?: number,
+}
+function Button(props: IButtonProps) {
+
+    function callClickAndResetButtonState(_numberOfClicks: number) {
+        props.onClick && props.onClick(_numberOfClicks);
+        setTriggerClick(false);
+        setNumberOfClicks(0);
+        setIsDropdownOpen(false);
+    }
+
+    const maxNumberOfMultiClick = props.maxNumberOfMultiClick || 1;
+    let [triggerClick, setTriggerClick] = React.useState(false);
+    const [numberOfClicks, setNumberOfClicks] = React.useState(0);
+
+    function handleClick(_numberOfClicks?: number) {
+        if(props.onClick == null) {
+            return;
+        } else if(isDropdownOpen) {
+            if(_numberOfClicks) {
+                callClickAndResetButtonState(_numberOfClicks);
+            }
+        } else if(maxNumberOfMultiClick === 1) {
+            callClickAndResetButtonState(1);
+        } else {
+            setTriggerClick(false);
+            setNumberOfClicks(numberOfClicks +1);
+            setTimeout(() => {
+                if(triggerClick === true) {
+                    callClickAndResetButtonState(numberOfClicks);
+                }
+               setTriggerClick(true);
+            }, 400);
+        }
+    }
+
+    const options: number[] = [];
+    for(let i=2;i<=maxNumberOfMultiClick; i++) {
+        options.push(i);
+    }
+
+    const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
+
+    return <button className={props.className + ' button' + (props.active ? ' active' : '')}
+        disabled={props.disabled === true}
+        onClick={() => handleClick()}
     >
-        {props.children}
+        {props.children} {numberOfClicks > 1 ? `+ ${numberOfClicks}` : ''}
+        {maxNumberOfMultiClick > 1 ? <>
+            <div
+                className={'selection'}
+                onClick={(event: any) => {
+                    event.preventDefault();
+                    setIsDropdownOpen(!isDropdownOpen);
+                    setNumberOfClicks(0);
+                    setTriggerClick(false);
+                }}
+            >
+                {isDropdownOpen ? '<' : '>'}
+            </div>
+            {isDropdownOpen && <div className={'options'}>
+                <Hint>Choose how many to add</Hint>
+                {options.map(o => <div
+                    className={'option'}
+                    onClick={() => handleClick(o)}
+                >{o}</div>)}
+            </div>}
+        </> : ''}
     </button>
 }
 
-function Pay() {
+interface IActionsProps {
+    onShowPreview: () => void;
+    onPay: () => void;
+    onReset: () => void;
+
+    showPreviewButton: boolean,
+    activatePayButton: boolean,
+    showResetButton: boolean,
+
+    price: number,
+}
+
+function Actions(props: IActionsProps) {
     return (
         <div className={'pay-row'}>
-            <Button className={'btn-pay'}>Tippabgabe</Button>
+            <div>Total Price: {toEuro(props.price)}</div>
+            <Buttons>
+                <Button
+                    className={'btn-preview'}
+                    disabled={props.showPreviewButton}
+                    onClick={props.onShowPreview}
+                >
+                    Show Preview
+                </Button>
+                {props.activatePayButton && <Button
+                    className={'btn-pay'}
+                    onClick={props.onPay}
+                >
+                    Tippabgabe
+                </Button>}
+                <Button
+                    className={'btn-reset'}
+                    active={props.showResetButton}
+                    onClick={props.onReset}
+                >
+                    Reset
+                </Button>
+            </Buttons>
         </div>
     )
+}
+
+function isBetFullySelected(bet: IBet, numberOfSelectedNumbers: number) {
+    const actualNumberOfSelectedNumbers = Object.keys(bet.numbers)
+        .filter(key => bet.numbers[Number(key)].selected).length;
+    return actualNumberOfSelectedNumbers === numberOfSelectedNumbers;
+}
+
+function isAtLeastOneNumberSelected(numbers: INumbers) {
+    const actualNumberOfSelectedNumbers = Object.keys(numbers)
+        .filter(key => numbers[Number(key)].selected).length;
+    return actualNumberOfSelectedNumbers > 0;
 }
 
 function toEuro(cents: number) {
     return '€ ' + (cents / 100).toFixed(2);
 }
 
+function mergeClassNames(...params: (null | undefined | string | {[key: string]: boolean})[]) {
+    let classNames: string[] = [];
+    params.forEach(param => {
+        if(param == null) {
+            // skip
+        } else if(typeof param === 'string') {
+            classNames.push(param);
+        } else {
+            classNames = [
+                ...classNames,
+                ...Object.keys(param).filter(className => param[className])];
+        }
+    });
+    return classNames.join(' ');
+}
+
+interface IHintProps {
+    children: string;
+}
+
+function Hint(props: IHintProps) {
+    return <div className={'hint'}>{props.children}</div>
+}
+
 export default App;
+
