@@ -15,10 +15,29 @@
     margin-right: 1em;
 }
 
-.lottos {
+.bets {
     padding: 0.5em;
     margin-bottom: 1em;
 }
+
+.bets .items {
+    display:flex;
+    width: 100%;
+    overflow: auto;
+}
+
+.bets.layout-vertical .items {
+    flex-direction: column;
+}
+
+.bets.layout-horizontal .items {
+    flex-direction: row;
+}
+
+.bets .items .item {
+    padding: 1em;
+}
+
 
 .lotto {
     box-shadow: 0px 0px 2px black;

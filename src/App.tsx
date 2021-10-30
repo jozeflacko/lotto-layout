@@ -79,12 +79,12 @@ function App() {
 
     const swipeHandlers = useSwipeable({
         onSwipedLeft: (event) => {
-            if(showPreview) {
+            if (showPreview) {
                 setShowPreview(false);
             }
         },
         onSwipedRight: (event) => {
-            if(!showPreview) {
+            if (!showPreview) {
                 setShowPreview(true);
             }
         },
@@ -117,7 +117,7 @@ function App() {
                 price={price}
                 acceptanceDeadline={defaultValues.acceptanceDeadline}
             />
-            <Lottos
+            <Bets
                 showPreview={showPreview}
                 defaultValues={defaultValues}
                 bets={bets}
@@ -160,13 +160,15 @@ function App() {
     );
 }
 
-interface ILottosProps extends IProps {
+interface IBetsProps extends IProps {
     bets: IBet[],
     onBetsChange: (bets: IBet[]) => void,
     defaultValues: IDefaultValues,
 }
 
-function Lottos(props: ILottosProps) {
+function Bets(props: IBetsProps) {
+
+    const [layout, setLayout] = React.useState<'vertical' | 'horizontal'>('vertical');
 
     const isMaximumNumberOfBetsSelected = props.bets.length >= props.defaultValues.maxBets;
 
@@ -181,51 +183,67 @@ function Lottos(props: ILottosProps) {
     const isDeleteDisabled = props.bets.length <= props.defaultValues.minBets;
 
     return (
-        <div className={'lottos box'}>
+        <div
+            className={mergeClassNames(
+                'bets',
+                'box',
+                {
+                    'layout-vertical': layout === 'vertical',
+                    'layout-horizontal': layout === 'horizontal',
+                }
+            )}
+        >
             <h3>Lotto Bets</h3>
-            {props.bets.map((bet, index) => {
-
-                return <Lotto
-                    key={index}
-                    showPreview={props.showPreview}
-                    message={'Tipp ' + (index + 1) + '/' + props.defaultValues.maxBets}
-                    areAllNumbersSelected={bet.areAllNumbersSelected}
-                    quick={bet.quick}
-                    numbers={bet.numbers}
-                    defaultValues={props.defaultValues}
-                    onBetChange={numbers => {
-                        const clone = [...props.bets];
-                        const current = clone[index];
-                        current.numbers = numbers;
-                        current.areAllNumbersSelected = isBetFullySelected(current, props.defaultValues.numberOfSelectedNumbers);
-                        current.quick = false;
-                        clone[index] = current;
-                        props.onBetsChange(clone);
-                    }}
-                    onDelete={isDeleteDisabled ? undefined : () => props.onBetsChange(props.bets.filter(__bet => __bet !== bet))}
-                />
-            })}
+            <Buttons>
+                <Button
+                    onClick={() => setLayout(layout !== 'vertical' ? 'vertical' : 'horizontal')}
+                >
+                    {layout === 'vertical' ? 'vetical' : 'horizontal'}
+                </Button>
+            </Buttons>
+            <div className={'items'}>
+                {props.bets.map((bet, index) => {
+                    return <div className={'item'}>
+                        <Lotto
+                            key={index}
+                            showPreview={props.showPreview}
+                            message={'Tipp ' + (index + 1) + '/' + props.defaultValues.maxBets}
+                            areAllNumbersSelected={bet.areAllNumbersSelected}
+                            quick={bet.quick}
+                            numbers={bet.numbers}
+                            defaultValues={props.defaultValues}
+                            onBetChange={numbers => {
+                                const clone = [...props.bets];
+                                const current = clone[index];
+                                current.numbers = numbers;
+                                current.areAllNumbersSelected = isBetFullySelected(current, props.defaultValues.numberOfSelectedNumbers);
+                                current.quick = false;
+                                clone[index] = current;
+                                props.onBetsChange(clone);
+                            }}
+                            onDelete={isDeleteDisabled ? undefined : () => props.onBetsChange(props.bets.filter(__bet => __bet !== bet))}
+                        />
+                    </div>
+                })}
+            </div>
             {!props.showPreview && <div>
                 <Hint>{hint}</Hint>
                 <Buttons>
                     <Button
                         disabled={areAddBetButtonsDisabled}
-                        maxNumberOfMultiClick={props.defaultValues.maxBets /* TODO calculate correct number */}
-                        onClick={(howMany) => {
+                        onClick={() => {
                             const __newBets = [...props.bets];
 
-                            new Array(howMany).fill(0).forEach(() => {
-                                __newBets.push(createBet(
-                                    false,
-                                    props.defaultValues.minBallNumber, props.defaultValues.maxBallNumber,
-                                    props.defaultValues.numberOfSelectedNumbers
-                                ));
-                            });
+                            __newBets.push(createBet(
+                                false,
+                                props.defaultValues.minBallNumber, props.defaultValues.maxBallNumber,
+                                props.defaultValues.numberOfSelectedNumbers
+                            ))
 
                             props.onBetsChange(__newBets);
                         }}
                     >
-                        {n => n <= 1 ? 'Add 1 Tipp' : 'Add ' + n + ' Tipps'}
+                        Add Tipp
                     </Button>
                     <Button
                         disabled={areAddBetButtonsDisabled}
@@ -342,7 +360,7 @@ function Lotto(props: ILottoProps) {
     )
 }
 
-interface ICollapsiblePanelProps extends IProps{
+interface ICollapsiblePanelProps extends IProps {
     header: JSX.Element,
     detail: JSX.Element,
     isOpen: boolean,
@@ -563,7 +581,7 @@ function Draws(props: IDrawsProps) {
 
     const draws = [];
     for (let i = 1; i <= props.defaultValues.maxDraws; i++) {
-        if(!props.showPreview || props.numberOfDraws === i) {
+        if (!props.showPreview || props.numberOfDraws === i) {
             draws.push({value: i, selected: props.numberOfDraws === i})
         }
 
@@ -664,7 +682,7 @@ function Button(props: IButtonProps) {
                     } else {
                         setShowConfirm(true);
                     }
-                },500));
+                }, 500));
                 return newNumberOfClicks;
             });
         }
@@ -728,24 +746,24 @@ function Actions(props: IActionsProps) {
         <div className={'pay-row'}>
             <div>Total Price: {toEuro(props.price)}</div>
             <Buttons>
-                <Button
-                    className={'btn-preview'}
-                    onClick={() => props.onShowPreview(!props.showPreview)}
+                {!props.showPreview && <Button
+                        className={'btn-preview'}
+                        onClick={() => props.onShowPreview(true)}
+                    >
+                        Show Ticket Preview
+                    </Button>}
+                {props.showPreview && <Button
+                    className={'btn-back'}
+                    onClick={() => props.onShowPreview(false)}
                 >
-                    Show Preview
-                </Button>
-                {<Button
+                    Back to game
+                </Button>}
+                {props.showPreview && <Button
                     className={'btn-pay'}
                     onClick={props.onPay}
                 >
                     Tippabgabe
                 </Button>}
-                <Button
-                    className={'btn-reset'}
-                    onClick={props.onReset}
-                >
-                    Reset
-                </Button>
             </Buttons>
         </div>
     )
