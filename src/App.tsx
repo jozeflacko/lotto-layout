@@ -3,7 +3,7 @@ import './App.css';
 import {useSwipeable} from 'react-swipeable';
 
 interface IDefaultValues {
-    numberOfSelectedNumbers: number,
+    selectedNumbersSize: number,
     minBallNumber: number,
     maxBallNumber: number,
     availableJokers: number[],
@@ -20,8 +20,14 @@ interface IDefaultValues {
     initPlayJokers: boolean,
 }
 
+enum IBetVariant {
+    MANUAL = 'MANUAL',
+    QUICK = 'QUICK',
+    FAVORITE = 'FAVORITE',
+}
+
 interface IBet {
-    quick: boolean,
+    variant: IBetVariant,
     numbers: INumbers,
     areAllNumbersSelected: boolean,
 }
@@ -52,7 +58,7 @@ function App() {
     const defaultValues: IDefaultValues = {
         minBallNumber: 1,
         maxBallNumber: 45,
-        numberOfSelectedNumbers: 6,
+        selectedNumbersSize: 6,
         availableJokers: allAvailableJokers,
         minDraws: 1,
         maxDraws: 10,
@@ -61,7 +67,7 @@ function App() {
         maxBets: 12,
         numberOfBets: 1,
         acceptanceDeadline: 'Mittwoch, 27.10.2021 18:30 Uhr',
-        initBet: [createBet(false, 1, 45, 6)],
+        initBet: [createEmptyBet(1, 45, 6)],
         initPlayLottoPlus: true,
         initPlayJokers: true,
         initJokers: [allAvailableJokers[0]],
@@ -73,9 +79,19 @@ function App() {
     // game
     const [bets, setBets] = React.useState<IBet[]>(defaultValues.initBet);
     const [playLottoPlus, setPlayLottoPlus] = React.useState(defaultValues.initPlayLottoPlus);
-    const [playJoker, setPlayJokers] = React.useState(defaultValues.initPlayJokers);
     const [selectedJokers, setSelectedJokers] = React.useState(defaultValues.initJokers);
     const [numberOfDraws, setNumberOfDraws] = React.useState(defaultValues.initNumberOfDraws);
+
+    const [showAfterPayPopup, setShowAfterPayPopup] = React.useState(false);
+
+    const [favoriteBets, setFavoriteBets] = React.useState<IBet[]>(
+        new Array(6).fill(0).map(() => createRandomBet(
+            IBetVariant.FAVORITE,
+            1,
+            45,
+            6
+        ))
+    );
 
     const swipeHandlers = useSwipeable({
         onSwipedLeft: (event) => {
@@ -93,9 +109,9 @@ function App() {
     function resetAll() {
         setBets(defaultValues.initBet);
         setPlayLottoPlus(defaultValues.initPlayLottoPlus);
-        setPlayJokers(defaultValues.initPlayJokers);
         setSelectedJokers(defaultValues.initJokers);
         setNumberOfDraws(defaultValues.initNumberOfDraws);
+        setShowAfterPayPopup(false);
     }
 
     const [showPreview, setShowPreview] = React.useState(false);
@@ -104,7 +120,7 @@ function App() {
         let __price = 0;
         __price += bets.length * PRICE.BET;
         __price += playLottoPlus ? PRICE.LOTTO_PLUS : 0;
-        __price += playJoker ? (selectedJokers.length * PRICE.JOKER) : 0;
+        __price += selectedJokers.length * PRICE.JOKER;
         __price = __price * numberOfDraws;
         setPrice(__price);
     });
@@ -121,7 +137,9 @@ function App() {
                 showPreview={showPreview}
                 defaultValues={defaultValues}
                 bets={bets}
+                favoriteBets={favoriteBets}
                 onBetsChange={bets => setBets(bets)}
+                onFavoriteBetsChange={bets => setFavoriteBets(bets)}
             />
             <LottoPlus
                 showPreview={showPreview}
@@ -132,14 +150,14 @@ function App() {
                 showPreview={showPreview}
                 allAvailableJokers={allAvailableJokers}
                 selectedJokers={selectedJokers}
-                playJoker={playJoker}
                 onChange={(clickedJoker, playJoker) => {
                     if (clickedJoker != null) {
                         const clickedJokerIndex = allAvailableJokers.indexOf(clickedJoker);
                         const jokers = allAvailableJokers.filter((joker, index) => index <= clickedJokerIndex);
                         setSelectedJokers(jokers);
+                    } else {
+                        setSelectedJokers([]);
                     }
-                    setPlayJokers(playJoker);
                 }}
             />
             <Draws
@@ -150,25 +168,49 @@ function App() {
             />
             <Actions
                 onPay={() => {
+                    setShowAfterPayPopup(true);
                 }}
                 onReset={() => resetAll()}
                 showPreview={showPreview}
                 onShowPreview={show => setShowPreview(show)}
                 price={price}
             />
+            <Popup
+                isOpen={showAfterPayPopup}
+            >
+                <AfterPay onShareClick={() => resetAll()}/>
+            </Popup>
         </div>
     );
+}
+
+interface IAfterPayProps {
+    onShareClick: () => void;
+}
+
+function AfterPay(props: IAfterPayProps) {
+    return <div className={'after-pay'}>
+        <h4>Would you like to share your bet?</h4>
+        <Buttons>
+            <Button onClick={() => {
+                props.onShareClick();
+            }}>SHARE</Button>
+        </Buttons>
+    </div>
 }
 
 interface IBetsProps extends IProps {
     bets: IBet[],
     onBetsChange: (bets: IBet[]) => void,
     defaultValues: IDefaultValues,
+    favoriteBets: IBet[],
+    onFavoriteBetsChange: (bets: IBet[]) => void,
 }
 
 function Bets(props: IBetsProps) {
 
-    const [layout, setLayout] = React.useState<'vertical' | 'horizontal'>('vertical');
+    const [layout, setLayout] = React.useState<'vertical' | 'horizontal'>('horizontal');
+    const [isFavoriteBetsOpen, setIsFavoriteBetsOpen] = React.useState(false);
 
     const isMaximumNumberOfBetsSelected = props.bets.length >= props.defaultValues.maxBets;
 
@@ -188,37 +230,35 @@ function Bets(props: IBetsProps) {
                 'bets',
                 'box',
                 {
-                    'layout-vertical': layout === 'vertical',
-                    'layout-horizontal': layout === 'horizontal',
+                    'layout-vertical': layout === 'vertical' || props.showPreview == true,
+                    'layout-horizontal': layout === 'horizontal' && props.showPreview == false,
                 }
             )}
         >
             <h3>Lotto Bets</h3>
-            <Buttons>
-                <Button
+            {!props.showPreview && <Buttons>
+                <div
                     onClick={() => setLayout(layout !== 'vertical' ? 'vertical' : 'horizontal')}
                 >
-                    {layout === 'vertical' ? 'vetical' : 'horizontal'}
-                </Button>
-            </Buttons>
+                    {layout === 'vertical' ? 'vertical' : 'horizontal'}
+                </div>
+            </Buttons>}
             <div className={'items'}>
                 {props.bets.map((bet, index) => {
                     return <div className={'item'}>
                         <Lotto
                             key={index}
+                            collapsible={layout === 'vertical'}
+                            favoriteBets={props.favoriteBets}
+                            onFavoriteBetsChange={bets => props.onFavoriteBetsChange(bets)}
                             showPreview={props.showPreview}
                             message={'Tipp ' + (index + 1) + '/' + props.defaultValues.maxBets}
-                            areAllNumbersSelected={bet.areAllNumbersSelected}
-                            quick={bet.quick}
-                            numbers={bet.numbers}
+                            bet={bet}
                             defaultValues={props.defaultValues}
-                            onBetChange={numbers => {
+                            onBetChange={bet => {
+                                console.log(Object.keys(bet.numbers).filter(key => bet.numbers[Number(key)].selected));
                                 const clone = [...props.bets];
-                                const current = clone[index];
-                                current.numbers = numbers;
-                                current.areAllNumbersSelected = isBetFullySelected(current, props.defaultValues.numberOfSelectedNumbers);
-                                current.quick = false;
-                                clone[index] = current;
+                                clone[index] = bet;
                                 props.onBetsChange(clone);
                             }}
                             onDelete={isDeleteDisabled ? undefined : () => props.onBetsChange(props.bets.filter(__bet => __bet !== bet))}
@@ -234,11 +274,11 @@ function Bets(props: IBetsProps) {
                         onClick={() => {
                             const __newBets = [...props.bets];
 
-                            __newBets.push(createBet(
-                                false,
-                                props.defaultValues.minBallNumber, props.defaultValues.maxBallNumber,
-                                props.defaultValues.numberOfSelectedNumbers
-                            ))
+                            __newBets.push(createEmptyBet(
+                                props.defaultValues.minBallNumber,
+                                props.defaultValues.maxBallNumber,
+                                props.defaultValues.selectedNumbersSize
+                            ));
 
                             props.onBetsChange(__newBets);
                         }}
@@ -247,22 +287,45 @@ function Bets(props: IBetsProps) {
                     </Button>
                     <Button
                         disabled={areAddBetButtonsDisabled}
-                        maxNumberOfMultiClick={props.defaultValues.maxBets /* TODO calculate correct number */}
+                        onClick={() => setIsFavoriteBetsOpen(true)}
+                    >
+                        Add Favorite
+                    </Button>
+                    <Popup
+                        isOpen={isFavoriteBetsOpen}
+                        onClose={() => setIsFavoriteBetsOpen(false)}
+                    >
+                        <FavoriteBets
+                            bets={props.favoriteBets}
+                            numberOfSelectedNumbers={props.defaultValues.selectedNumbersSize}
+                            onBetClick={(bet) => {
+                                const __newBets = [...props.bets];
+                                __newBets.push(bet);
+                                props.onBetsChange(__newBets);
+                                setIsFavoriteBetsOpen(false);
+                            }}
+                            onBetsChange={(bets) => {
+                                props.onFavoriteBetsChange(bets)
+                            }}
+                        />
+                    </Popup>
+                    <Button
+                        disabled={areAddBetButtonsDisabled}
+                        maxNumberOfMultiClick={layout === 'vertical' ? props.defaultValues.maxBets : undefined /* TODO calculate correct number */}
                         onClick={(howMany) => {
                             const __newBets = [...props.bets];
-
                             new Array(howMany).fill(0).forEach(() => {
-                                __newBets.push(createBet(
-                                    true,
+                                __newBets.push(createRandomBet(
+                                    IBetVariant.QUICK,
                                     props.defaultValues.minBallNumber,
                                     props.defaultValues.maxBallNumber,
-                                    props.defaultValues.numberOfSelectedNumbers
+                                    props.defaultValues.selectedNumbersSize,
                                 ));
                             });
                             props.onBetsChange(__newBets);
                         }}
                     >
-                        {n => n <= 1 ? 'Add 1 QuickTipp' : 'Add ' + n + ' QuickTipps'}
+                        {n => n > 1 && layout === 'vertical' ? 'Add ' + n + ' QuickTipps' : 'Add QuickTipp'}
                     </Button>
                 </Buttons>
             </div>}
@@ -270,92 +333,189 @@ function Bets(props: IBetsProps) {
     )
 }
 
-function createBet(
-    quick: boolean,
+function createRandomBet(
+    variant: IBetVariant,
     minNumber: number,
     maxNumber: number,
-    numberOfSelectedNumbers: number,
-): IBet {
-
-    const bet: IBet = {
-        quick: quick,
-        numbers: createNumbers(quick, minNumber, maxNumber, numberOfSelectedNumbers),
-        areAllNumbersSelected: quick
-    };
-
-    return {...bet, areAllNumbersSelected: isBetFullySelected(bet, numberOfSelectedNumbers)};
+    selectedNumbersSize: number,
+) {
+    const selectedNumbers = createNumbers(
+        true,
+        minNumber,
+        maxNumber,
+        selectedNumbersSize
+    );
+    return createBet(variant, minNumber, maxNumber, selectedNumbersSize, selectedNumbers);
 }
 
-interface ILottoProps extends IBet, IProps {
-    onBetChange: (s: INumbers) => void,
+function createEmptyBet(
+    minNumber: number,
+    maxNumber: number,
+    selectedNumbersSize: number,
+) {
+    return createBet(
+        IBetVariant.MANUAL,
+        minNumber,
+        maxNumber,
+        selectedNumbersSize,
+        createNumbers(
+            false,
+            minNumber,
+            maxNumber,
+            selectedNumbersSize
+        )
+    )
+}
+
+function createBet(
+    variant: IBetVariant,
+    minNumber: number,
+    maxNumber: number,
+    selectedNumbersSize: number,
+    selectedNumbers: INumbers,
+): IBet {
+    return {
+        variant: variant,
+        numbers: selectedNumbers,
+        areAllNumbersSelected: areNumbersFullySelected(selectedNumbers, selectedNumbersSize),
+    };
+}
+
+interface ILottoProps extends IProps {
+    bet: IBet,
+    onBetChange: (bet: IBet) => void,
     onDelete?: () => void,
     message: string,
     defaultValues: IDefaultValues,
+    collapsible: boolean,
+    favoriteBets: IBet[],
+    onFavoriteBetsChange: (bets: IBet[]) => void,
 }
 
 function Lotto(props: ILottoProps) {
 
     const [isOpen, setIsDetailOpen] = React.useState(true);
 
-    function createBetNumbers(randomNumbers: boolean) {
+    function createBetNumbers(generateRandomNumbers: boolean) {
         return createNumbers(
-            randomNumbers,
+            generateRandomNumbers,
             props.defaultValues.minBallNumber,
             props.defaultValues.maxBallNumber,
-            props.defaultValues.numberOfSelectedNumbers
+            props.defaultValues.selectedNumbersSize
         );
     }
 
-    function handleCreateNumbers(randomNumbers: boolean) {
-        props.onBetChange(createBetNumbers(randomNumbers));
+    function handleCreateNumberForBet(bet: IBet, generateRandomNumbers: boolean) {
+
+        const currentBet: IBet = {...bet};
+        currentBet.numbers = createBetNumbers(generateRandomNumbers);
+        currentBet.variant = generateRandomNumbers ? IBetVariant.QUICK : IBetVariant.MANUAL;
+        currentBet.areAllNumbersSelected = isBetFullySelected(currentBet, props.defaultValues.selectedNumbersSize);
+
+        props.onBetChange(currentBet);
+    }
+
+    function Header() {
+
+        const favoriteBetsAsStringArray: string[] = props.favoriteBets.map(fb => numbersToString(fb));
+
+        return <div className={'header'}>
+            <h4>{props.message}</h4>
+            <h6>variant: {props.bet.variant}</h6>
+            <SelectedNumbers
+                numbers={props.bet.numbers}
+                howManyShouldBe={props.defaultValues.selectedNumbersSize}
+                areAllNumbersSelected={props.bet.areAllNumbersSelected}
+            />
+            {!props.showPreview && <Buttons>
+                <Button
+
+                    onClick={() => {
+                        const numbersAsString = numbersToString(props.bet);
+                        const isFavorite = favoriteBetsAsStringArray.includes(numbersAsString);
+
+                        if (isFavorite) {
+                            const c = favoriteBetsAsStringArray
+                                .filter(fbString => fbString !== numbersAsString)
+                                .map(fbString => createBet(
+                                    IBetVariant.FAVORITE,
+                                    props.defaultValues.minBallNumber,
+                                    props.defaultValues.maxBallNumber,
+                                    props.defaultValues.selectedNumbersSize,
+                                    createNumbersFromPassedNumbers(
+                                        fbString.split(',').map(s => Number(s)),
+                                        props.defaultValues.minBallNumber,
+                                        props.defaultValues.maxBallNumber,
+                                    )
+                                ))
+                            props.onFavoriteBetsChange(c);
+                            props.onBetChange({...props.bet, variant: IBetVariant.MANUAL})
+                        } else {
+                            props.onFavoriteBetsChange([
+                                ...props.favoriteBets,
+                                createBet(
+                                    IBetVariant.FAVORITE,
+                                    props.defaultValues.minBallNumber,
+                                    props.defaultValues.maxBallNumber,
+                                    props.defaultValues.selectedNumbersSize,
+                                    props.bet.numbers
+                                ),
+                            ]);
+                            props.onBetChange({...props.bet, variant: IBetVariant.FAVORITE})
+                        }
+                    }}
+                    active={
+                        props.bet.variant === IBetVariant.FAVORITE
+                    }
+                >FAVORITE</Button>
+                <Button
+                    onClick={() => handleCreateNumberForBet(props.bet, true)}
+                >
+                    refresh
+                </Button>
+                <Button
+                    onClick={() => handleCreateNumberForBet(props.bet, false)}
+                >
+                    clear
+                </Button>
+                <Button
+                    onClick={() => props.onDelete && props.onDelete()}
+                    disabled={props.onDelete == null}
+                >
+                    delete
+                </Button>
+            </Buttons>}
+        </div>
+    }
+
+    function Body() {
+        return <GridNumbers
+            numbers={props.bet.numbers}
+            areAllNumbersSelected={props.bet.areAllNumbersSelected}
+            onClick={numbers => {
+                const numberOfOfAlreadySelectedNumbersCurrently = Object.keys(props.bet.numbers).filter(key => props.bet.numbers[Number(key)].selected).length;
+                const numberOfOfAlreadySelectedNumbers = Object.keys(numbers).filter(key => numbers[Number(key)].selected).length;
+                if (numberOfOfAlreadySelectedNumbers < props.defaultValues.selectedNumbersSize) {
+                    props.onBetChange({...props.bet, numbers: numbers, variant: IBetVariant.MANUAL});
+                } else if (numberOfOfAlreadySelectedNumbersCurrently < props.defaultValues.selectedNumbersSize) {
+                    props.onBetChange({...props.bet, numbers: numbers, variant: IBetVariant.MANUAL});
+                }
+            }}
+        />;
     }
 
     return (
         <div className={'lotto'}>
-            <CollapsiblePanel
+            {props.collapsible ? <CollapsiblePanel
                 showPreview={props.showPreview}
                 isOpen={isOpen}
                 onToggleIsOpenClick={isOpen => setIsDetailOpen(isOpen)}
-                header={<div className={'header'}>
-                    <h4>{props.message}</h4>
-                    <SelectedNumbers
-                        numbers={props.numbers}
-                        howManyShouldBe={props.defaultValues.numberOfSelectedNumbers}
-                        areAllNumbersSelected={props.areAllNumbersSelected}
-                    />
-                    {!props.showPreview && <Buttons>
-                        <Button
-                            onClick={() => handleCreateNumbers(true)}
-                        >
-                            refresh
-                        </Button>
-                        <Button
-                            onClick={() => handleCreateNumbers(false)}
-                        >
-                            clear
-                        </Button>
-                        <Button
-                            onClick={() => props.onDelete && props.onDelete()}
-                            disabled={props.onDelete == null}
-                        >
-                            delete
-                        </Button>
-                    </Buttons>}
-                </div>}
-                detail={<GridNumbers
-                    numbers={props.numbers}
-                    areAllNumbersSelected={props.areAllNumbersSelected}
-                    onClick={numbers => {
-                        const numberOfOfAlreadySelectedNumbersCurrently = Object.keys(props.numbers).filter(key => props.numbers[Number(key)].selected).length;
-                        const numberOfOfAlreadySelectedNumbers = Object.keys(numbers).filter(key => numbers[Number(key)].selected).length;
-                        if (numberOfOfAlreadySelectedNumbers < props.defaultValues.numberOfSelectedNumbers) {
-                            props.onBetChange(numbers);
-                        } else if (numberOfOfAlreadySelectedNumbersCurrently < props.defaultValues.numberOfSelectedNumbers) {
-                            props.onBetChange(numbers);
-                        }
-                    }}
-                />}
-            />
+                header={<Header/>}
+                detail={<Body/>}
+            /> : <>
+                <Header/>
+                {!props.showPreview && <Body/>}
+            </>}
         </div>
     )
 }
@@ -387,13 +547,16 @@ function CollapsiblePanel(props: ICollapsiblePanelProps) {
     )
 }
 
-interface ISelectedBallsProps {
+interface ISelectedNumbersProps {
     numbers: INumbers,
     howManyShouldBe: number,
-    areAllNumbersSelected: boolean,
+    areAllNumbersSelected?: boolean,
+    onClick?: () => void,
+    onDelete?: () => void
 }
 
-function SelectedNumbers(props: ISelectedBallsProps) {
+function SelectedNumbers(props: ISelectedNumbersProps) {
+
     const numbers = Object.keys(props.numbers)
         .filter(key => props.numbers[Number(key)].selected)
         .map(key => {
@@ -412,23 +575,37 @@ function SelectedNumbers(props: ISelectedBallsProps) {
     return <div
         className={'selected-numbers'}
         key={numbers.map(b => b.key).join('___')}
+        onClick={() => props.onClick && props.onClick()}
     >
         {numbers.map(b => <Ball
             value={b.value}
             key={b.key}
             variant={props.areAllNumbersSelected ? 'primary' : undefined}
         />)}
-        {props.areAllNumbersSelected ? 'OK' : ''}
+        {props.areAllNumbersSelected && (props.areAllNumbersSelected === true ? 'OK' : '')}
     </div>;
 }
 
-function createNumbers(randomNumber: boolean, min: number, max: number, howMany: number) {
-    const numbers: INumbers = {};
+function createNumbers(
+    randomNumber: boolean,
+    min: number,
+    max: number,
+    howMany: number,
+) {
     const selectedRandomNumbers = randomNumber ? createRandomNumbers(min, max, howMany) : [];
+    return createNumbersFromPassedNumbers(selectedRandomNumbers, min, max);
+}
+
+function createNumbersFromPassedNumbers(
+    selectedNumbers: number[],
+    min: number,
+    max: number,
+) {
+    const numbers: INumbers = {};
     for (let i = min; i <= max; i++) {
         numbers[i] = {
             value: i,
-            selected: selectedRandomNumbers.includes(i)
+            selected: selectedNumbers.includes(i)
         };
     }
     return numbers;
@@ -538,35 +715,90 @@ function LottoPlus(props: ILottoPlusProps) {
 interface IJokersProps extends IProps {
     allAvailableJokers: number[],
     selectedJokers: number[],
-    playJoker: boolean,
     onChange: (joker: number | null, playJoker: boolean) => void,
 }
 
 function Jokers(props: IJokersProps) {
 
+    function getLastSelectedJoker(what: 'addOne' | 'removeOne') {
+        let endIndex = props.selectedJokers.length + (what === 'removeOne' ? -2 : 0);
+        if (endIndex < 0) {
+            return null;
+        }
+        if (endIndex >= props.allAvailableJokers.length) {
+            return props.allAvailableJokers[props.allAvailableJokers.length - 1];
+        }
+        return props.allAvailableJokers[endIndex];
+    }
+
     return (
         <div className={'box jokers'}>
             <h4>Joker</h4>
-            <Buttons>
+
+            <div className={'yes-no'}>
                 <Button
-                    onClick={() => props.onChange(null, false)}
-                    active={!props.playJoker}
-                >No</Button>
+                    className={'remove-one'}
+                    active={props.selectedJokers.length === 0}
+                    onClick={() => {
+                        const selectedJoker = getLastSelectedJoker('removeOne');
+                        props.onChange(null, false)
+                    }}
+                >
+                    Nein
+                </Button>
                 <Button
-                    onClick={() => props.onChange(null, true)}
-                    active={props.playJoker}
-                >Yes</Button>
-            </Buttons>
-            <Buttons>
-                {props.showPreview ? props.selectedJokers : props.allAvailableJokers.map(n => <Button
+                    className={'add-one'}
+                    active={props.selectedJokers.length > 0}
+                    onClick={() => {
+                        const selectedJoker = getLastSelectedJoker('addOne');
+                        props.onChange(selectedJoker, selectedJoker != null)
+                    }}
+                >
+                    Yes
+                </Button>
+            </div>
+
+            <div className={'overview'}>
+                <Button
+                    className={'remove-one'}
+                    active={props.selectedJokers.length === 0}
+                    onClick={() => {
+                        const selectedJoker = getLastSelectedJoker('removeOne');
+                        props.onChange(selectedJoker, selectedJoker != null)
+                    }}
+                >
+                    -
+                </Button>
+                <div
+                    className={'number-of-played-jokers'}
+                >
+                    {props.selectedJokers.length}
+                </div>
+                <Button
+                    className={'add-one'}
+                    active={props.selectedJokers.length > 0}
+                    onClick={() => {
+                        const selectedJoker = getLastSelectedJoker('addOne');
+                        props.onChange(selectedJoker, selectedJoker != null)
+                    }}
+                >
+                    +
+                </Button>
+            </div>
+            <div className={'yes-no'}>
+                {props.selectedJokers.length > 0 ? 'Ja' : 'Du spielßt kein Joker'}
+            </div>
+            <div className={'numbers'}>
+                {props.allAvailableJokers.map(n => <Button
                     key={n}
-                    active={!props.playJoker ? false : props.selectedJokers.includes(n)}
-                    onClick={() => props.onChange(n, true)}
-                    disabled={!props.playJoker}
+                    className={mergeClassNames('number')}
+                    active={props.selectedJokers.includes(n)}
+                    onClick={()=> props.onChange(n, true)}
+
                 >
                     {n}
                 </Button>)}
-            </Buttons>
+            </div>
         </div>
     )
 }
@@ -588,7 +820,7 @@ function Draws(props: IDrawsProps) {
     }
 
     return (
-        <div className={'box jokers'}>
+        <div className={'box draws'}>
             <h4>Spieldauer</h4>
             <Buttons>
                 {draws.map(b => <Button
@@ -599,7 +831,7 @@ function Draws(props: IDrawsProps) {
                     {b.value}
                 </Button>)}
             </Buttons>
-            <h5>Ziehungen</h5>
+            <h5 className={'description'}>Ziehungen</h5>
         </div>
     )
 }
@@ -742,16 +974,17 @@ interface IActionsProps extends IProps {
 }
 
 function Actions(props: IActionsProps) {
+
     return (
         <div className={'pay-row'}>
             <div>Total Price: {toEuro(props.price)}</div>
             <Buttons>
                 {!props.showPreview && <Button
-                        className={'btn-preview'}
-                        onClick={() => props.onShowPreview(true)}
-                    >
-                        Show Ticket Preview
-                    </Button>}
+                    className={'btn-preview'}
+                    onClick={() => props.onShowPreview(true)}
+                >
+                    Show Ticket Preview
+                </Button>}
                 {props.showPreview && <Button
                     className={'btn-back'}
                     onClick={() => props.onShowPreview(false)}
@@ -769,10 +1002,34 @@ function Actions(props: IActionsProps) {
     )
 }
 
-function isBetFullySelected(bet: IBet, numberOfSelectedNumbers: number) {
-    const actualNumberOfSelectedNumbers = Object.keys(bet.numbers)
-        .filter(key => bet.numbers[Number(key)].selected).length;
-    return actualNumberOfSelectedNumbers === numberOfSelectedNumbers;
+interface IPopup {
+    children: JSX.Element;
+    isOpen: boolean,
+    onClose?: () => void;
+}
+
+function Popup(props: IPopup) {
+    return <div className={mergeClassNames('popup',
+        {
+            'closed': !props.isOpen
+        }
+    )}
+    >
+        {props.onClose && <Button onClick={() => props.onClose && props.onClose()}>
+            X
+        </Button>}
+        {props.children}
+    </div>
+}
+
+function isBetFullySelected(bet: IBet, selectedNumbersSize: number) {
+    return areNumbersFullySelected(bet.numbers, selectedNumbersSize);
+}
+
+function areNumbersFullySelected(numbers: INumbers, selectedNumbersSize: number) {
+    const actualNumberOfSelectedNumbers = Object.keys(numbers)
+        .filter(key => numbers[Number(key)].selected).length;
+    return actualNumberOfSelectedNumbers === selectedNumbersSize;
 }
 
 function isAtLeastOneNumberSelected(numbers: INumbers) {
@@ -801,12 +1058,51 @@ function mergeClassNames(...params: (null | undefined | string | { [key: string]
     return classNames.join(' ');
 }
 
+interface IFavoriteBetsProps {
+    bets: IBet[],
+    numberOfSelectedNumbers: number,
+    onBetsChange: (bets: IBet[]) => void,
+    onBetClick: (bets: IBet) => void,
+}
+
+function FavoriteBets(props: IFavoriteBetsProps) {
+    return <div className={'favorite-bets'}>
+        {props.bets.map((bet, index) => <SelectedNumbers
+            key={index}
+            numbers={bet.numbers}
+            howManyShouldBe={props.numberOfSelectedNumbers}
+            areAllNumbersSelected={true}
+            onClick={() => {
+                props.onBetClick(bet);
+            }}
+            onDelete={() => {
+                props.onBetsChange(props.bets.filter(b => b !== bet));
+            }}
+        />)}
+    </div>
+}
+
 interface IHintProps {
     children: string;
 }
 
 function Hint(props: IHintProps) {
     return <div className={'hint'}>{props.children}</div>
+}
+
+function numbersToString(bet: IBet): string {
+    const numbers = bet.numbers;
+    const keys = Object.keys(numbers);
+    const selectedNumbersKeys = keys.filter(key => {
+        const number = numbers[Number(key)];
+        return number.selected === true;
+    });
+    const mappedValues = selectedNumbersKeys.map(key => {
+        const number = numbers[Number(key)];
+        return number.value;
+    });
+    return mappedValues.join(',');
+
 }
 
 export default App;
